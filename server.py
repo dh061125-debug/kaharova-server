@@ -18,7 +18,7 @@ player_room: dict = {}           # id(ws) -> room_id
 # --- Helpers ---
 async def _send(ws, data: dict):
     try:
-        if ws and not ws.closed:
+        if ws:
             await ws.send(json.dumps(data, ensure_ascii=False))
     except Exception as e:
         logger.debug(f"_send failed: {e}")
