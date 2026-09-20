@@ -110,6 +110,11 @@ async def _handle_game_action(ws, data: dict):
         relay["type"] = "opponent_action"
         await _send(opponent, relay)
 
+async def _handle_webrtc_signal(ws, data: dict):
+    opponent = await _get_opponent(ws)
+    if opponent:
+        await _send(opponent, data)
+
 # --- Main loop ---
 async def handle_client(ws):
     logger.info(f"[CONNECT] {ws.remote_address}")
@@ -124,6 +129,7 @@ async def handle_client(ws):
                 elif t == "get_rooms":     await _handle_get_rooms(ws)
                 elif t == "join_by_code":  await _handle_join_by_code(ws, data)
                 elif t == "game_action":   await _handle_game_action(ws, data)
+                elif t == "webrtc_signal": await _handle_webrtc_signal(ws, data)
                 elif t == "ping":          await _send(ws, {"type": "pong"})
             except json.JSONDecodeError:
                 pass
