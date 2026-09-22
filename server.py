@@ -6,6 +6,8 @@ import uuid
 import os
 import logging
 import websockets
+from websockets.http11 import Response
+from websockets.datastructures import Headers
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -14,6 +16,18 @@ logger = logging.getLogger(__name__)
 match_queue: list = []           # websockets waiting for random match
 rooms: dict = {}                 # room_id -> {name, host_ws, guest_ws, code, game_state}
 player_room: dict = {}           # id(ws) -> room_id
+
+
+async def _health_check(connection, request):
+    """Render 헬스체크용 HTTP 응답입니다. WebSocket 업그레이드는 그대로 통과합니다."""
+    if request.path == "/" and request.headers.get("Upgrade", "").lower() != "websocket":
+        return Response(
+            200,
+            "OK",
+            Headers([("Content-Type", "text/plain; charset=utf-8")]),
+            b"Kaharova server is running\n",
+        )
+    return None
 
 # --- Helpers ---
 async def _send(ws, data: dict):
@@ -154,7 +168,12 @@ async def handle_client(ws):
 async def main():
     port = int(os.environ.get("PORT", 8765))
     logger.info(f"Server listening on 0.0.0.0:{port}")
-    async with websockets.serve(handle_client, "0.0.0.0", port):
+    async with websockets.serve(
+        handle_client,
+        "0.0.0.0",
+        port,
+        process_request=_health_check,
+    ):
         await asyncio.Future()  # run forever
 
 if __name__ == "__main__":
