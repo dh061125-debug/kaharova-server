@@ -1,10 +1,10 @@
 services:
   - type: web
-    name: kaharova-server
-    runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python server.py
-    healthCheckPath: /
-    envVars:
-      - key: PORT
-        value: 10000
+	name: kaharova-server
+	runtime: python
+	buildCommand: pip install -r requirements.txt
+	startCommand: python server.py
+	healthCheckPath: /
+	envVars:
+	  - key: PORT
+		value: 10000
