@@ -18,10 +18,17 @@ player_room: dict = {}           # id(ws) -> room_id
 # --- Helpers ---
 async def _send(ws, data: dict):
     try:
+        # websockets 12~17 모두 호환되도록 closed 속성에 의존하지 않습니다.
+        # 전송 실패는 예외로 처리합니다.
         if ws:
-            await ws.send(json.dumps(data, ensure_ascii=False))
+            payload = json.dumps(data, ensure_ascii=False)
+            await ws.send(payload)
+            logger.info(f"[SEND] peer={getattr(ws, 'remote_address', None)} type={data.get('type')}")
+            return True
+        logger.warning(f"[SEND SKIP] socket is closed type={data.get('type')}")
     except Exception as e:
-        logger.debug(f"_send failed: {e}")
+        logger.warning(f"[SEND ERROR] type={data.get('type')} error={e}")
+    return False
 
 async def _get_opponent(ws):
     room_id = player_room.get(id(ws))
@@ -61,12 +68,14 @@ async def _handle_find_match(ws):
         }
         player_room[id(opponent)] = room_id
         player_room[id(ws)] = room_id
-        logger.info(f"[MATCH] room={room_id[:8]}")
-        await _send(opponent, {"type": "matched", "role": "host"})
-        await _send(ws,       {"type": "matched", "role": "guest"})
+        logger.info(f"[MATCH] room={room_id[:8]} host={getattr(opponent, 'remote_address', None)} guest={getattr(ws, 'remote_address', None)}")
+        host_sent = await _send(opponent, {"type": "matched", "role": "host"})
+        guest_sent = await _send(ws, {"type": "matched", "role": "guest"})
+        logger.info(f"[MATCH COMPLETE] room={room_id[:8]} host_sent={host_sent} guest_sent={guest_sent}")
     else:
         match_queue.append(ws)
-        await _send(ws, {"type": "waiting"})
+        sent = await _send(ws, {"type": "waiting"})
+        logger.info(f"[MATCH WAITING] peer={getattr(ws, 'remote_address', None)} sent={sent}")
 
 async def _handle_cancel_match(ws):
     if ws in match_queue:
@@ -123,6 +132,7 @@ async def handle_client(ws):
             try:
                 data = json.loads(message)
                 t = data.get("type", "")
+                logger.info(f"[RECV] peer={getattr(ws, 'remote_address', None)} type={t}")
                 if   t == "find_match":    await _handle_find_match(ws)
                 elif t == "cancel_match":  await _handle_cancel_match(ws)
                 elif t == "create_room":   await _handle_create_room(ws, data)
